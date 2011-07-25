@@ -14,6 +14,9 @@ CANONICAL_CHROMOSOME = 1<<1
 CANONICAL_ASSEMBLY   = 1<<2
 CANONICAL_ALL        = CANONICAL_TRANSCRIPT|CANONICAL_CHROMOSOME|CANONICAL_ASSEMBLY
 
+KGENOME_CHRMAP       = dict( (i,i) for i in range(1,23) )
+KGENOME_CHRMAP.update({23:'X',24:'Y',25:'M'})
+
 
 def query_genes_by_name(con, gene, canonical=None, mapped=None):
   sql = '''
@@ -225,7 +228,17 @@ def query_contig_by_name(con,name):
     raise KeyError('Ambiguous contig "%s"' % name)
 
 
-def query_snps_by_name(con,name,canonical=True):
+def query_snps_by_name(con,name,canonical=True,resolve_1kgenome=True):
+
+  if resolve_1kgenome and name.startswith('SNP') and '-' in name:
+    try:
+      chrom,end = name[3:].split('-')
+      chrom = 'chr%s' % KGENOME_CHRMAP[int(chrom)]
+      end   = int(end)
+      return [ (name,chrom,end-1,end,'+','?','?','?','?',None) ]
+    except (ValueError,IndexError):
+      pass
+
   sql = '''
   SELECT   name,chrom,start,end,strand,refAllele,alleles,vclass,func,weight
   FROM     snp
